@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Frequência Bolsistas</title>
+
+<style>
+body{
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background:#f4f6f8;
+  padding:20px;
+}
+
+h2{
+  margin-bottom:10px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+  background:white;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  border-radius:8px;
+  overflow:hidden;
+  table-layout: fixed;
+}
+
+thead{
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+
+th{
+  background:#2c3e50;
+  color:white;
+  font-weight:500;
+  padding:8px;
+}
+
+td{
+  border:1px solid #e0e0e0;
+  padding:6px;
+  text-align:center;
+}
+
+tbody tr:nth-child(even){
+  background:#f9fbfc;
+}
+
+tbody tr:hover{
+  background:#eef5ff;
+  transition:0.2s;
+}
+
+/* Colunas dos meses */
+td:nth-child(n+8):nth-child(-n+19){
+  width:55px;
+}
+
+/* Select meses */
+select{
+  width:45px;
+  height:30px;
+  font-size:15px;
+  font-weight:600;
+  text-align:center;
+  border:1px solid #ccc;
+  border-radius:6px;
+  background:#fff;
+  cursor:pointer;
+}
+
+/* Justificativa */
+input[type="text"]{
+  width:100%;
+  padding:5px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+
+/* Arquivo */
+input[type="file"]{
+  font-size:12px;
+}
+
+/* Botão */
+button{
+  margin-top:15px;
+  padding:10px 20px;
+  font-size:15px;
+  font-weight:600;
+  border:none;
+  border-radius:8px;
+  background:#2c3e50;
+  color:white;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover{
+  background:#1a252f;
+}
+
+.msg{
+  margin:10px 0;
+  color:#2ecc71;
+  font-weight:600;
+}
+</style>
+
+</head>
+<body>
+
+<h2>Frequência de Bolsistas</h2>
+<div id="info"></div>
+<div class="msg" id="msg"></div>
+
+<table>
+<thead id="thead"></thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<script>
+const URL = "https://script.google.com/macros/s/AKfycbxbUlaxQVXFDN5aNde6t1RQMPw9yCXLdUmDrELHwDsYVPd9YF_ziOPf61RyGlAd0MzmOQ/exec";
+const email = sessionStorage.getItem("coordenadorLogado");
+
+if(!email){
+  alert("Acesso inválido");
+  location.href="index.html";
+}
+
+document.getElementById("info").innerText = "Logado como: " + email;
+
+fetch(`${URL}?acao=listar&email=${email}`)
+.then(r=>r.json())
+.then(d=>{
+  montarTabela(d.cabecalho,d.dados);
+})
+.catch(()=>alert("Erro ao carregar dados"));
+
+function montarTabela(cab, dados){
+  document.getElementById("thead").innerHTML =
+    "<tr>"+cab.map(h=>`<th>${h}</th>`).join("")+"</tr>";
+
+  const tbody=document.getElementById("tbody");
+  dados.forEach((l,i)=>{
+    const tr=document.createElement("tr");
+
+    l.forEach((v,j)=>{
+      let td=document.createElement("td");
+
+      if(j>=7 && j<=18){
+        td.innerHTML=`<select>
+          <option value=""></option>
+          <option ${v==="X"?"selected":""}>X</option>
+          <option ${v==="F"?"selected":""}>F</option>
+        </select>`;
+      } else if(j===19){
+        td.innerHTML=`<input type="text" value="${v||""}">`;
+      } else if(j===20){
+        td.innerHTML=`<input type="file">`;
+      } else {
+        td.innerText=v||"";
+      }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+function salvar(){
+  document.querySelectorAll("tbody tr").forEach(tr=>{
+    const tds=tr.querySelectorAll("td");
+    const matricula=tds[2].innerText;
+
+    const meses={};
+    ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+    .forEach((m,i)=>meses[m]=tds[7+i].querySelector("select").value);
+
+    const justificativa=tds[19].querySelector("input").value;
+    const fileInput=tds[20].querySelector("input");
+    const file=fileInput.files[0];
+
+    if(file){
+      const r=new FileReader();
+      r.onload=()=>{
+        enviar(matricula,meses,justificativa,file,r.result.split(",")[1]);
+      };
+      r.readAsDataURL(file);
+    } else {
+      enviar(matricula,meses,justificativa,null,null);
+    }
+  });
+}
+
+function enviar(mat,meses,just,file,base64){
+  fetch(URL,{
+    method:"POST",
+    body:JSON.stringify({
+      matricula:mat,
+      meses,
+      justificativa:just,
+      nomeArquivo:file?.name||"",
+      tipoArquivo:file?.type||"",
+      arquivoBase64:base64||""
+    })
+  }).then(()=>document.getElementById("msg").innerText="Dados enviados com sucesso ✔");
+}
+</script>
+
+<button onclick="salvar()">💾 Salvar</button>
+
+</body>
+</html>
